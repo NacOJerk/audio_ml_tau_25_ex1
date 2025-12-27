@@ -54,6 +54,10 @@ def read_audio_file(audio_file: pathlib.Path) -> Tuple[int, np.array]:
 
     assert len(raw_sample.shape) == 1, "Channel truncation failed"
 
+    assert raw_sample.dtype == np.int16, "Unexpected data type"
+    WAVFILE_INT16_MAX_RANGE = 32767.0 # Taken from wavfile.py
+    raw_sample = raw_sample.astype(np.float32) / WAVFILE_INT16_MAX_RANGE
+
     return original_sample_rate, raw_sample
 
 def convert_to_rate(original_sample_rate: int, raw_sample: np.array, new_sample_rate: int) -> np.array:
@@ -67,7 +71,6 @@ def main() -> None:
     setup_logging(args.debug)
 
     original_sample_rate, raw_sample = read_audio_file(args.audio_file)
-    raw_sample = raw_sample.astype(np.float32)
     logging.info(f"Original sampling frequency: {original_sample_rate} (samples/sec)")
     
     new_sample = convert_to_rate(original_sample_rate, raw_sample, STANDARD_SAMPLE_RATE)
