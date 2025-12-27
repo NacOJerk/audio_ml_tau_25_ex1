@@ -1,7 +1,9 @@
 import argparse
 import logging
+import matplotlib.pyplot as plt
 import numpy as np
 import pathlib
+import pyworld as pw
 import scipy
 import scipy.io.wavfile as wavfile
 from typing import Tuple
@@ -66,6 +68,42 @@ def convert_to_rate(original_sample_rate: int, raw_sample: np.array, new_sample_
     resampled_audio, new_timestamps = scipy.signal.resample(raw_sample, num_samples, t=fake_timestamps)
     return resampled_audio
 
+def draw_resampled_plots(title: str, sample_rate: int, samples: np.array) -> None:
+    sample_intervale = 1 / sample_rate
+    fake_timestamps = [i * sample_intervale for i in range(len(samples))]
+
+    fig, ((audio_plt, spectogram_plt), (ax3, ax4)) = plt.subplots(2, 2)
+    fig.suptitle(title)
+    for i, ax in enumerate((ax3, ax4)):
+        ax.plot(fake_timestamps, samples)
+        ax.set_title(f'{i}')
+    
+    audio_plt.plot(fake_timestamps, samples)
+    audio_plt.set_title('Audio as a function of time')
+    audio_plt.set_ylabel('Amplitude')
+    audio_plt.set_xlabel('Time (s)')
+
+    window_size_ms = 20
+    hop_size_ms = 10
+    number_of_data_points_in_block = int(sample_rate * window_size_ms / 1000)
+    hop_size = int(sample_rate * hop_size_ms / 1000)
+    noverlap = number_of_data_points_in_block - hop_size
+    spectogram_plt.specgram(samples,
+                            Fs=sample_rate,
+                            NFFT=number_of_data_points_in_block,
+                            noverlap=noverlap,
+                            scale='dB',
+                            mode='magnitude',
+                        )
+    spectogram_plt.set_title('Spectogram')
+    spectogram_plt.set_xlabel("Time (s)")
+    spectogram_plt.set_ylabel("Frequency (Hz)")
+
+
+
+    plt.show()
+
+
 def main() -> None:
     args = parse_args()
     setup_logging(args.debug)
@@ -75,6 +113,12 @@ def main() -> None:
     
     new_sample = convert_to_rate(original_sample_rate, raw_sample, STANDARD_SAMPLE_RATE)
     logging.debug(f'Resampled audio to: {STANDARD_SAMPLE_RATE} (samples/sec)')
+
+    assert STANDARD_SAMPLE_RATE % 2 == 0
+    new_sample_rate = STANDARD_SAMPLE_RATE // 2
+    my_down_sample = new_sample[::2]
+    scipy_down_sample = convert_to_rate(STANDARD_SAMPLE_RATE, new_sample, new_sample_rate)
+    draw_resampled_plots('Stuiped Down sample', new_sample_rate, my_down_sample)
 
 if __name__ == "__main__":
     main()
