@@ -1,0 +1,288 @@
+\documentclass{article}
+
+% Language setting
+% Replace `english' with e.g. `spanish' to change the document language
+\usepackage[english]{babel}
+\usepackage{mathrsfs,amsmath} 
+
+% Set page size and margins
+% Replace `letterpaper' with `a4paper' for UK/EU standard size
+\usepackage[letterpaper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+
+% Useful packages
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+
+\title{Advanced Topics in Audio Processing Using Deep Learning}
+\author{Barr Kirel, Dor Tirosh, Noam Shaked Cohen}
+
+\begin{document}
+\maketitle
+
+
+\section{Analytic Part}
+\subsection{Continuous Signals}
+\subsubsection{Time convolution property}
+
+By definitions of convolutions and Fourier transform:
+\begin{equation}
+    \mathcal{F}\{x_1(t) * x_2(t)\} = \int_{-\infty}^{\infty} \left[ \int_{-\infty}^{\infty} x_1(\tau) x_2(t - \tau) d\tau \right] e^{-j\omega t} dt
+\end{equation}
+
+Interchanging the order of integration:
+\begin{equation}
+    = \int_{-\infty}^{\infty} x_1(\tau) \left[ \int_{-\infty}^{\infty} x_2(t - \tau) e^{-j\omega t} dt \right] d\tau
+\end{equation}
+
+Let $u = t - \tau$, so  $t = u + \tau$ and $dt = du$.
+\begin{equation}
+    = \int_{-\infty}^{\infty} x_1(\tau) \left[ \int_{-\infty}^{\infty} x_2(u) e^{-j\omega (u + \tau)} du \right] d\tau
+    = \int_{-\infty}^{\infty} x_1(\tau) e^{-j\omega \tau} \left[ \int_{-\infty}^{\infty} x_2(u) e^{-j\omega u} du \right] d\tau
+\end{equation}
+
+This is exactly $X_2(w)$! so we got
+\begin{equation}
+    = \int_{-\infty}^{\infty} x_1(\tau) e^{-j\omega \tau} X_2(\omega) d\tau    = X_2(\omega) \int_{-\infty}^{\infty} x_1(\tau) e^{-j\omega \tau} d\tau
+    = X_2(\omega) X_1(\omega)
+\end{equation}
+
+So overall we got:
+\begin{equation}
+    \mathcal{F}\{x_1(t) * x_2(t)\} = X_1(\omega) X_2(\omega)
+\label{eq:conv_mult}
+\end{equation}
+
+\subsubsection{Linearity property}
+\begin{equation}
+    \mathcal{F}(ax_1(t)+bx_2(t)) = \int_{-\infty}^\infty \left[ ax_1(t)+bx_2(t)\right]e^{-j\omega t}dt
+\end{equation}
+From linearity of integrals:
+\begin{equation}
+    =\int_{-\infty}^\infty ax_1(t)e^{-j\omega t}dt + \int_{-\infty}^\infty bx_2(t)e^{-j\omega t}dt = a\int_{-\infty}^\infty x_1(t)e^{-j\omega t}dt + b\int_{-\infty}^\infty x_2(t)e^{-j\omega t}dt
+\end{equation}
+
+Which is exactly
+\begin{equation}
+    a X_1(\omega)+b X_2(\omega)
+\label{eq:linearity}
+\end{equation}
+\subsubsection{Scaling property}
+
+\begin{equation}
+    \mathcal{F}(x(at)) = \int_{-\infty}^\infty x(at)e^{-j\omega t}dt
+\end{equation}
+Applying substitution of $u=at$, so $dt = \frac{1}{a}du$ and $t=\frac{1}{a}u$. the limits of the integration do not change as $a$ is positive
+\begin{equation}
+    = \int_{-\infty}^\infty x(u)e^{-j\omega \frac{1}{a}u}\frac{1}{a}du=\frac{1}{a}\int_{-\infty}^\infty x(u)e^{-j\omega \frac{1}{a}u}du=\frac{1}{a}\int_{-\infty}^\infty x(u)e^{-j(\frac{\omega}{a})u}du
+\end{equation}
+
+Which is exactly the definition of the Fourier Transform with frequency $\frac{\omega}{a}$:
+\begin{equation}
+    \mathcal{F}(x(at)) = \frac{1}{a} X\left(\frac{\omega}{a}\right)
+\end{equation}
+\subsubsection{Time shifting property }
+
+\begin{equation}
+    \mathcal{F}(x(t-t_0)) = \int_{-\infty}^\infty x(t-t_0)e^{-j\omega t}dt
+\end{equation}
+We can substitute $t$ to $u=t-t_0$ (note that $du=dt$) and get
+\begin{equation}
+     = \int_{-\infty}^\infty x(u)e^{-j\omega (u+t_0)}du= \int_{-\infty}^\infty x(u)e^{-j\omega u}e^{-j\omega t_0}du=e^{-j\omega t_0} \int_{-\infty}^\infty x(u)e^{-j\omega u}du=e^{-j\omega t_0}X(\omega)
+\end{equation}
+
+How does it affect the amplitude:
+\begin{equation}
+    |e^{-j\omega t_0} X(\omega)| = |e^{-j\omega t_0}| \cdot |X(\omega)|
+\end{equation}
+Since the magnitude of a complex exponential is always unity ($|e^{j\theta}| = 1$ for any real $\theta$):
+\begin{equation}
+    = |X(\omega)|
+\end{equation}
+So \textbf{time shifting does not change the amplitude spectrum of the signal}.
+
+As for the phase:
+Using the property that the angle of a product is the sum of the angles ($\angle(ab) = \angle a + \angle b$):
+\begin{equation}
+    \angle \left[e^{-j\omega t_0} X(\omega) \right] = \angle(e^{-j\omega t_0}) + \angle X(\omega)
+\end{equation}
+The angle of $e^{-j\omega t_0}$ is simply $(-\omega t_0)$:
+\begin{equation}
+    \angle Y(\omega) = -\omega t_0 + \angle X(\omega)
+\end{equation}
+So \textbf{time shifting adds a linear phase term ($-\omega t_0$) to the original phase spectrum}. This means the phase is shifted by an amount proportional to the frequency $\omega$.
+
+
+\subsubsection{Fourier transform of unit gate (rect) function}
+
+Applying the Fourier Transform definition on $rect(\frac{t}{\tau})$:
+\begin{equation}
+    X(\omega) = \int_{-\infty}^{\infty} x(t) e^{-j\omega t} dt = \int_{-\tau/2}^{\tau/2} 1 \cdot e^{-j\omega t} dt
+\end{equation}
+
+Solving the integral:
+\begin{equation}
+    X(\omega) = \left[ \frac{e^{-j\omega t}}{-j\omega} \right]_{-\tau/2}^{\tau/2}
+\end{equation}
+
+\begin{equation}
+    = \frac{1}{-j\omega} \left( e^{-j\omega \tau/2} - e^{-j\omega (-\tau/2)} \right)
+\end{equation}
+\begin{equation}
+    = \frac{1}{j\omega} \left( e^{j\omega \tau/2} - e^{-j\omega \tau/2} \right)
+\end{equation}
+
+Using $\sin(\theta) = \frac{e^{j\theta} - e^{-j\theta}}{2j}$:
+\begin{equation}
+    = \frac{2}{\omega} \left( \frac{e^{j\omega \tau/2} - e^{-j\omega \tau/2}}{2j} \right)
+\end{equation}
+\begin{equation}
+    = \frac{2}{\omega} \sin\left(\frac{\omega \tau}{2}\right)
+\end{equation}
+
+We can multiply and divide by $\tau/2$:
+\begin{equation}
+    = \tau \cdot \frac{\sin(\frac{\omega \tau}{2})}{\frac{\omega \tau}{2}}
+\end{equation}
+\begin{equation}
+    X(\omega) = \tau \text{sinc}\left(\frac{\omega \tau}{2}\right)
+\label{eq:rect_sinc}
+\end{equation}
+
+
+In order to draw it, note that:
+Power of $ X(\omega)$ is just $| X(\omega)|$
+And that because $X(\omega)$ is totally real,  $\angle  X(\omega)$ is either $0$ or $\pi$, depends on whether its positive or negative.
+\begin{figure}
+\centering
+\includegraphics[width=0.75\linewidth]{media/rect_graphs.png}
+\end{figure}
+
+\subsection{Fourier Series}
+\subsubsection{Fourier series of delta function}
+
+Given a unit impulse train $x(t) = \delta_{T_0}(t) = \sum_{k=-\infty}^{\infty} \delta(t - k T_0)$.
+
+The exponential Fourier series coefficients are defined as:
+\begin{equation}
+    D_n = \frac{1}{T_0} \int_{-T_0/2}^{T_0/2} x(t) e^{-j n \omega_0 t} dt
+\end{equation}
+
+Considering the interval $[-T_0/2, T_0/2]$, the function $x(t)$ contains only the single impulse at $t=0$, so $x(t) = \delta(t)$.
+\begin{equation}
+    D_n = \frac{1}{T_0} \int_{-T_0/2}^{T_0/2} \delta(t) e^{-j n \omega_0 t} dt
+\end{equation}
+
+Using the sifting property of the delta function $\int \delta(t)f(t)dt = f(0)$:
+\begin{equation}
+    D_n = \frac{1}{T_0} \cdot e^{-j n \omega_0 (0)} = \frac{1}{T_0} \cdot 1
+\end{equation}
+
+\textbf{So:}
+\begin{equation}
+    D_n = \frac{1}{T_0}
+\end{equation}
+
+Since $x(t)$ is periodic, we can represent it as a Complex Exponential Fourier Series:
+\begin{equation}
+    x(t) = \sum_{n=-\infty}^{\infty} D_n e^{j n \omega_0 t}
+\end{equation}
+We previously calculated the Fourier coefficients $D_n$:
+\begin{equation}
+    D_n = \frac{1}{T_0}
+\end{equation}
+To find $X(\omega)$, we will be substituting this right back into the series:
+\begin{equation}
+    x(t) = \sum_{n=-\infty}^{\infty} \frac{1}{T_0} e^{j n \omega_0 t}
+\end{equation}
+
+We apply the Fourier Transform to both sides:
+\begin{equation}
+    X(\omega) = \mathcal{F}\left\{ \frac{1}{T_0} \sum_{n=-\infty}^{\infty} e^{j n \omega_0 t} \right\}
+\end{equation}
+\begin{equation}
+    X(\omega) = \frac{1}{T_0} \sum_{n=-\infty}^{\infty} \mathcal{F}\left\{ e^{j n \omega_0 t} \right\}
+\end{equation}
+
+We use the standard Fourier Transform for a complex exponential:
+\begin{equation}
+    \mathcal{F}\{ e^{j \omega_c t} \} = 2\pi \delta(\omega - \omega_c)
+\end{equation}
+Therefore:
+\begin{equation}
+    \mathcal{F}\{ e^{j n \omega_0 t} \} = 2\pi \delta(\omega - n\omega_0)
+\end{equation}
+
+So:
+\begin{equation}
+    X(\omega) = \frac{1}{T_0} \sum_{k=-\infty}^{\infty} 2\pi \delta(\omega - k\omega_0)=
+    X(\omega) = \frac{2\pi}{T_0} \sum_{k=-\infty}^{\infty} \delta(\omega - k\omega_0)
+\label{eq:deltas}
+\end{equation}
+
+\begin{figure}
+\centering
+\includegraphics[width=0.7\linewidth]{media/impulse_train_all_aboard.png}
+\end{figure}
+
+$T_0$ is the time duration between each two consecutive deltas in the time domain, and the interval between each $D_i$ and $D_{i+1}$ in the frequency domain is $\omega_0=\frac{2\pi}{T_0}$ 
+
+\subsection{spectrum of a specific continuous, periodic function}
+
+The function is a sum of time shifted rects:
+\begin{equation}
+    x(t)=\sum_{k=-\infty}^\infty rect(\frac{t+2\pi k}{\pi})
+\end{equation}
+In other words:
+\begin{equation}
+    x(t)=rect(\frac{t}{\pi})*\sum_{k=-\infty}^\infty \delta(t-2\pi k)
+\end{equation}
+It's spectrum is:
+\begin{equation}
+    X(\omega) = \mathcal{F}\left[ rect(\frac{t+2\pi k}{\pi})*\sum_{k=-\infty}^\infty \delta(t-2\pi k) \right]  \overset{\text{from}\eqref{eq:conv_mult}}{=}\mathcal{F}\left[ rect(\frac{t+2\pi k}{\pi})\right] \mathcal{F}\left[\sum_{k=-\infty}^\infty \delta(t-2\pi k) \right] 
+\end{equation}
+Using \eqref{eq:rect_sinc}and  \eqref{eq:linearity} we get:
+
+\begin{equation}
+    X(\omega)=\pi sinc(\frac{\pi\omega}{2}) \sum_{k=-\infty}^\infty \mathcal{F}\left[\delta(t-2\pi k) \right] \overset{\eqref{eq:deltas}}{=}\pi sinc(\frac{\pi\omega}{2})  \cdot\frac{2\pi}{2 \pi} \sum_{k=-\infty}^{\infty} \delta(\omega - k)
+\end{equation}
+
+\begin{figure}
+\centering
+\includegraphics[width=0.7\linewidth]{media/section_3_plot.png}
+\end{figure}
+
+
+\subsection{Unit step function analysis}
+
+\begin{equation}
+    X(\omega) =  \mathcal{F}\left[ e^{-at}u(t) \right] = \int_{-\infty}^{\infty} e^{-at}u(t) e^{-j\omega t} dt=\int_{0}^{\infty} e^{-(a+j\omega)t} dt \overset{\text{integration}}{=} \left[ \frac{e^{-(a+j\omega)t}}{-(a+j\omega)} \right]_{0}^{\infty}
+\end{equation}
+Given that $a > 0$, the upper limit vanishes:
+\begin{equation}
+    X(\omega) = 0 - \frac{1}{-(a+j\omega)} = \frac{1}{a+j\omega}
+\end{equation}
+Its magnitude and phase are:
+\begin{equation}
+    |X(\omega)| = |\sqrt{\frac{1}{a-j\omega}\cdot\frac{1}{a+j\omega}}=\frac{1}{\sqrt{a^2+\omega^2}}
+    \end{equation}
+\begin{equation}
+    \angle X(\omega) \overset{\text{angle identity}}{=} -\angle\frac{1}{X(\omega)}=-\angle(a+j\omega)=-\tan^{-1}\left(\frac{\omega}{a}\right)
+\end{equation}
+\begin{figure}
+\centering
+\includegraphics[width=0.7\linewidth]{media/problem_4_plot.png}
+\end{figure}
+
+Analyzing the filter type by checking limits:
+\begin{equation}
+    \lim_{\omega \to 0} |X(\omega)| = \frac{1}{a}, \quad \lim_{\omega \to \infty} |X(\omega)| = 0
+\end{equation}
+Since low frequencies pass and high frequencies are attenuated, this is a Low Pass Filter.
+
+
+
+\end{itemize}
+
+
+\end{document}
