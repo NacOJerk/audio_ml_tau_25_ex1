@@ -59,11 +59,17 @@ def parse_args() -> argparse.Namespace:
         help='The target rms after amilification',
         default=-8,
     )
+    parser.add_argument(
+        '--speed-up-factor',
+        type=float,
+        help='The target rms after amilification',
+        default=1.5,
+    )
     parser.add_argument('--question',
                         type=str,
                         help='Which question we are doing now',
                         required=True,
-                        choices=['a', 'b', 'c', 'd'])
+                        choices=['a', 'b', 'c', 'd', 'e'])
 
     return parser.parse_args()
 
@@ -357,7 +363,19 @@ def main() -> None:
     #           Question 5            #
     #                                 #
     ###################################
-
+    f_orig_audio = librosa.stft(scipy_down_sample, win_length=window_size_samples, hop_length=hop_size_samples)
+    vo_coder_interp = scipy.interpolate.interp1d(
+                list(range(f_orig_audio.shape[1])),
+                f_orig_audio, 
+                axis=1, 
+                kind='linear')
+    max_speed_up_frame = int(np.floor(f_orig_audio.shape[1] / args.speed_up_factor))
+    f_speed_up_audio = []
+    for i in range(max_speed_up_frame):
+        input_in_orig = i * args.speed_up_factor
+        f_speed_up_audio.append(vo_coder_interp(input_in_orig))
+    f_speed_up_audio = np.array(f_speed_up_audio).T
+    speed_up_audio = librosa.istft(f_speed_up_audio, win_length=window_size_samples, hop_length=hop_size_samples)
 
     logging.info(f"Answering question: '{args.question}'")
     if args.question == 'a':
@@ -368,6 +386,11 @@ def main() -> None:
         plot_question_c(NEW_SAMPLE_RATE, hop_size_samples, audio_noise_threshold, rms, cleaned_audio)
     elif args.question == 'd':
         plot_question_d(NEW_SAMPLE_RATE, amplified_audio, agc_rms, target_rms, audio_noise_threshold, hop_size_agc_samples)
+    elif args.question == 'e':
+        draw_resampled_plots(f'Audio speed up by {args.speed_up_factor}', NEW_SAMPLE_RATE, speed_up_audio)
+        SPEED_UP_AUDIO_LOCATION = OUTPUT_DIR / pathlib.Path(f'5_speed_up_by_{args.speed_up_factor}_audio.wav')
+        wavfile.write(SPEED_UP_AUDIO_LOCATION, NEW_SAMPLE_RATE,speed_up_audio)
+        logging.info(f'Saved speed up audio to: "{SPEED_UP_AUDIO_LOCATION.as_posix()}"')
     else:
         raise RuntimeError(f'Unknown question ({repr(args.question)})')
 
