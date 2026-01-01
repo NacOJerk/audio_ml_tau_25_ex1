@@ -235,30 +235,34 @@ def main() -> None:
     rms = librosa.feature.rms(y=noised_audio, frame_length=window_size_samples, hop_length=hop_size_samples)[0]
     times = librosa.times_like(rms, sr=NEW_SAMPLE_RATE, hop_length=hop_size_samples)
     threshold_raw = [audio_noise_threshold] * len(times)
-    plt.title('RMS Energy vs threshold')
-    plt.plot(times, rms, label='RMS', color='blue')
-    plt.plot(times, threshold_raw, label='threshold', color='red')
-    plt.ylabel('RMS Energy (Root-Mean-Square)')
-    plt.xlabel('Time (s)')
-    plt.legend('upper right')
-    plt.show()
+    # plt.title('RMS Energy vs threshold')
+    # plt.plot(times, rms, label='RMS', color='blue')
+    # plt.plot(times, threshold_raw, label='threshold', color='red')
+    # plt.ylabel('RMS Energy (Root-Mean-Square)')
+    # plt.xlabel('Time (s)')
+    # plt.legend('upper right')
+    # plt.show()
     frame_index_buffer = []
     noise_buffer = []
     for i in range(len(rms)):
         if rms[i] < audio_noise_threshold:
             noise_buffer.append(f_noised_audio[:, i])
             frame_index_buffer.append(i)
+
     frame_index_buffer = np.array(frame_index_buffer)
     noise_buffer = np.array(noise_buffer)
+
     interp_func = scipy.interpolate.interp1d(frame_index_buffer, noise_buffer, 
                     axis=0, 
                     kind='linear', 
                     fill_value="extrapolate")
-    full_frame_indices = np.arange(f_noised_audio.shape[1])
-    f_inter_noised = interp_func(full_frame_indices)
-    f_inter_noised = f_inter_noised.T
+    f_clean_audio = f_noised_audio.copy()
+    for i in range(f_clean_audio.shape[1]):
+        if rms[i] < audio_noise_threshold:
+            f_clean_audio[:, i] -= f_noised_audio[:, i]
+        else:
+            f_clean_audio[:, i] -= interp_func(i)
 
-    f_clean_audio = f_noised_audio - f_inter_noised
     cleaned_audio = librosa.istft(f_clean_audio, win_length=window_size_samples, hop_length=hop_size_samples)
     wavfile.write('/tmp/after.wav', NEW_SAMPLE_RATE, cleaned_audio)
 
