@@ -135,7 +135,6 @@ def draw_resampled_plots(title: str, sample_rate: int, samples: np.array) -> Non
     plt.colorbar(mel_img, ax=melspectogram_plt, format='%+2.0f dB')
 
     rms = librosa.feature.rms(y=samples, frame_length=window_size_samples, hop_length=hop_size_samples)[0]
-    rms_db = librosa.amplitude_to_db(rms, ref=np.max)
     times = librosa.times_like(rms, sr=sample_rate, hop_length=hop_size_samples)
     rms_plt.set_title('RMS Energy')
     rms_plt.plot(times, rms, label='')
