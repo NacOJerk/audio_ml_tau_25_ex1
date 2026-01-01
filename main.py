@@ -288,7 +288,6 @@ def main() -> None:
                 f_clean_audio[:, i] -= interp_func(i)
 
     cleaned_audio = librosa.istft(f_clean_audio, win_length=window_size_samples, hop_length=hop_size_samples)
-    wavfile.write('/tmp/after.wav', NEW_SAMPLE_RATE, cleaned_audio)
 
     logging.info(f"Answering question: '{args.question}'")
     if args.question == 'a':
