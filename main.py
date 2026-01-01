@@ -48,6 +48,11 @@ def parse_args() -> argparse.Namespace:
         help='The threshold for the spectral substraction',
         default=0.016,
     )
+    parser.add_argument(
+        '--use-average-for-spectracl',
+        action='store_true',
+        help='Use average instead of interpolation in spectral noise removal',
+    )
     parser.add_argument('--question',
                         type=str,
                         help='Which question we are doing now',
@@ -214,6 +219,28 @@ def create_matching_audio_frames(y: np.ndarray,
 
     return librosa.util.frame(y, frame_length=frame_length, hop_length=hop_length)
 
+def plot_question_c(sample_rate: int,
+                    hop_length: int,
+                    audio_noise_threshold: float, 
+                    rms: np.ndarray, 
+                    cleaned_audio: np.ndarray) -> None:
+    times = librosa.times_like(rms, sr=sample_rate, hop_length=hop_length)
+    threshold_raw = [audio_noise_threshold] * len(times)
+    plt.title('RMS Energy vs threshold')
+    plt.plot(times, rms, label='RMS', color='blue')
+    plt.plot(times, threshold_raw, label='threshold', color='red')
+    plt.ylabel('RMS Energy (Root-Mean-Square)')
+    plt.xlabel('Time (s)')
+    plt.legend('upper right')
+    plt.show()
+
+    draw_resampled_plots('Cleaned Audio', sample_rate, cleaned_audio)
+
+    CLEANED_AUDIO_LOCATION = OUTPUT_DIR / pathlib.Path('3_cleaned_audio.wav')
+    wavfile.write(CLEANED_AUDIO_LOCATION, NEW_SAMPLE_RATE, cleaned_audio)
+    logging.info(f'Saved trivial down sample to: "{CLEANED_AUDIO_LOCATION.as_posix()}"')
+
+
 
 def main() -> None:
     args = parse_args()
@@ -233,15 +260,6 @@ def main() -> None:
     audio_noise_threshold = args.audio_noise_threshold
     f_noised_audio = librosa.stft(noised_audio, win_length=window_size_samples, hop_length=hop_size_samples)
     rms = librosa.feature.rms(y=noised_audio, frame_length=window_size_samples, hop_length=hop_size_samples)[0]
-    times = librosa.times_like(rms, sr=NEW_SAMPLE_RATE, hop_length=hop_size_samples)
-    threshold_raw = [audio_noise_threshold] * len(times)
-    # plt.title('RMS Energy vs threshold')
-    # plt.plot(times, rms, label='RMS', color='blue')
-    # plt.plot(times, threshold_raw, label='threshold', color='red')
-    # plt.ylabel('RMS Energy (Root-Mean-Square)')
-    # plt.xlabel('Time (s)')
-    # plt.legend('upper right')
-    # plt.show()
     frame_index_buffer = []
     noise_buffer = []
     for i in range(len(rms)):
@@ -251,17 +269,23 @@ def main() -> None:
 
     frame_index_buffer = np.array(frame_index_buffer)
     noise_buffer = np.array(noise_buffer)
-
-    interp_func = scipy.interpolate.interp1d(frame_index_buffer, noise_buffer, 
-                    axis=0, 
-                    kind='linear', 
-                    fill_value="extrapolate")
+    
     f_clean_audio = f_noised_audio.copy()
-    for i in range(f_clean_audio.shape[1]):
-        if rms[i] < audio_noise_threshold:
-            f_clean_audio[:, i] -= f_noised_audio[:, i]
-        else:
-            f_clean_audio[:, i] -= interp_func(i)
+
+    if args.use_average_for_spectracl:
+        noise_average = np.average(noise_buffer, axis=0)
+        for i in range(f_clean_audio.shape[1]):
+            f_clean_audio[:, i] -= noise_average
+    else:
+        interp_func = scipy.interpolate.interp1d(frame_index_buffer, noise_buffer, 
+                axis=0, 
+                kind='linear', 
+                fill_value="extrapolate")
+        for i in range(f_clean_audio.shape[1]):
+            if rms[i] < audio_noise_threshold:
+                f_clean_audio[:, i] -= f_noised_audio[:, i]
+            else:
+                f_clean_audio[:, i] -= interp_func(i)
 
     cleaned_audio = librosa.istft(f_clean_audio, win_length=window_size_samples, hop_length=hop_size_samples)
     wavfile.write('/tmp/after.wav', NEW_SAMPLE_RATE, cleaned_audio)
@@ -272,7 +296,7 @@ def main() -> None:
     elif args.question == 'b':
         plot_question_b(NEW_SAMPLE_RATE, noise_sample, scipy_down_sample, noised_audio)
     elif args.question == 'c':
-        pass
+        plot_question_c(NEW_SAMPLE_RATE, hop_size_samples, audio_noise_threshold, rms, cleaned_audio)
     else:
         raise RuntimeError(f'Unknown question ({repr(args.question)})')
 
