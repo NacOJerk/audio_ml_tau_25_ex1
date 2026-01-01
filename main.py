@@ -42,11 +42,17 @@ def parse_args() -> argparse.Namespace:
         help="The audio file to process",
         required=True,
     )
+    parser.add_argument(
+        '--audio-noise-threshold',
+        type=float,
+        help='The threshold for the spectral substraction',
+        default=0.016,
+    )
     parser.add_argument('--question',
                         type=str,
                         help='Which question we are doing now',
                         required=True,
-                        choices=['a', 'b'])
+                        choices=['a', 'b', 'c'])
 
     return parser.parse_args()
 
@@ -196,6 +202,18 @@ def plot_question_b(sample_rate: int, noise: np.array, audio: np.array, noised_a
     wavfile.write(NOISY_SAMPLE_LOCATION, NEW_SAMPLE_RATE, noised_audio)
     logging.info(f'Saved trivial down sample to: "{NOISY_SAMPLE_LOCATION.as_posix()}"')
 
+def create_matching_audio_frames(y: np.ndarray,
+                                 frame_length: int,
+                                 hop_length: int,
+                                 center: bool = True,
+                                 pad_mode = "constant") -> np.ndarray:
+    if center:
+        padding = [(0, 0) for _ in range(y.ndim)]
+        padding[-1] = (int(frame_length // 2), int(frame_length // 2))
+        y = np.pad(y, padding, mode=pad_mode)
+
+    return librosa.util.frame(y, frame_length=frame_length, hop_length=hop_length)
+
 
 def main() -> None:
     args = parse_args()
@@ -210,12 +228,47 @@ def main() -> None:
     noise_sample = noise_sample[:len(scipy_down_sample)]
     noised_audio = scipy_down_sample + noise_sample
 
+    window_size_samples = int(NEW_SAMPLE_RATE * WINDOW_SIZE_MS / 1000)
+    hop_size_samples = int(NEW_SAMPLE_RATE * HOP_SIZE_MS / 1000)
+    audio_noise_threshold = args.audio_noise_threshold
+    f_noised_audio = librosa.stft(noised_audio, win_length=window_size_samples, hop_length=hop_size_samples)
+    rms = librosa.feature.rms(y=noised_audio, frame_length=window_size_samples, hop_length=hop_size_samples)[0]
+    times = librosa.times_like(rms, sr=NEW_SAMPLE_RATE, hop_length=hop_size_samples)
+    threshold_raw = [audio_noise_threshold] * len(times)
+    plt.title('RMS Energy vs threshold')
+    plt.plot(times, rms, label='RMS', color='blue')
+    plt.plot(times, threshold_raw, label='threshold', color='red')
+    plt.ylabel('RMS Energy (Root-Mean-Square)')
+    plt.xlabel('Time (s)')
+    plt.legend('upper right')
+    plt.show()
+    frame_index_buffer = []
+    noise_buffer = []
+    for i in range(len(rms)):
+        if rms[i] < audio_noise_threshold:
+            noise_buffer.append(f_noised_audio[:, i])
+            frame_index_buffer.append(i)
+    frame_index_buffer = np.array(frame_index_buffer)
+    noise_buffer = np.array(noise_buffer)
+    interp_func = scipy.interpolate.interp1d(frame_index_buffer, noise_buffer, 
+                    axis=0, 
+                    kind='linear', 
+                    fill_value="extrapolate")
+    full_frame_indices = np.arange(f_noised_audio.shape[1])
+    f_inter_noised = interp_func(full_frame_indices)
+    f_inter_noised = f_inter_noised.T
+
+    f_clean_audio = f_noised_audio - f_inter_noised
+    cleaned_audio = librosa.istft(f_clean_audio, win_length=window_size_samples, hop_length=hop_size_samples)
+    wavfile.write('/tmp/after.wav', NEW_SAMPLE_RATE, cleaned_audio)
+
+    logging.info(f"Answering question: '{args.question}'")
     if args.question == 'a':
-        logging.info('Answering question \'a\'')
         plot_question_a(my_down_sample, scipy_down_sample)
     elif args.question == 'b':
-        logging.info('Answering question \'b\'')
         plot_question_b(NEW_SAMPLE_RATE, noise_sample, scipy_down_sample, noised_audio)
+    elif args.question == 'c':
+        pass
     else:
         raise RuntimeError(f'Unknown question ({repr(args.question)})')
 
