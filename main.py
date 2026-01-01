@@ -273,6 +273,11 @@ def main() -> None:
     args = parse_args()
     setup_logging(args.debug)
 
+    ###################################
+    #                                 #
+    #       Loading Audio Files       #
+    #                                 #
+    ###################################
     audio_sample = load_audio_file_as_standard(args.audio_file)
     noise_sample = convert_to_rate(STANDARD_SAMPLE_RATE, load_audio_file_as_standard(NOISE_PATH), NEW_SAMPLE_RATE)
 
@@ -282,6 +287,11 @@ def main() -> None:
     noise_sample = noise_sample[:len(scipy_down_sample)]
     noised_audio = scipy_down_sample + noise_sample
 
+    ###################################
+    #                                 #
+    #           Question 3            #
+    #                                 #
+    ###################################
     window_size_samples = int(NEW_SAMPLE_RATE * WINDOW_SIZE_MS / 1000)
     hop_size_samples = int(NEW_SAMPLE_RATE * HOP_SIZE_MS / 1000)
     audio_noise_threshold = librosa.db_to_power(args.audio_noise_threshold)
@@ -316,6 +326,11 @@ def main() -> None:
 
     cleaned_audio = librosa.istft(f_clean_audio, win_length=window_size_samples, hop_length=hop_size_samples)
 
+    ###################################
+    #                                 #
+    #           Question 4            #
+    #                                 #
+    ###################################
     amplified_audio = cleaned_audio.copy()
     windows_size_agc_ms = 1000
     windows_size_agc_samples = int(NEW_SAMPLE_RATE * windows_size_agc_ms / 1000)
@@ -336,6 +351,13 @@ def main() -> None:
         end_idx_in_audio = min(start_idx_in_audio + hop_size_agc_samples, len(amplified_audio))
         amplified_audio[start_idx_in_audio:end_idx_in_audio] *= gain_factor
     amplified_audio = np.tanh(amplified_audio)
+
+    ###################################
+    #                                 #
+    #           Question 5            #
+    #                                 #
+    ###################################
+
 
     logging.info(f"Answering question: '{args.question}'")
     if args.question == 'a':
