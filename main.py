@@ -45,8 +45,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--audio-noise-threshold',
         type=float,
-        help='The threshold for the spectral substraction',
-        default=0.016,
+        help='The threshold for the spectral substraction in db',
+        default=-17.95,
     )
     parser.add_argument(
         '--use-average-for-spectracl',
@@ -224,12 +224,14 @@ def plot_question_c(sample_rate: int,
                     audio_noise_threshold: float, 
                     rms: np.ndarray, 
                     cleaned_audio: np.ndarray) -> None:
+    rms_db = librosa.power_to_db(rms)
     times = librosa.times_like(rms, sr=sample_rate, hop_length=hop_length)
     threshold_raw = [audio_noise_threshold] * len(times)
+    threshold_raw_db = librosa.power_to_db(threshold_raw)
     plt.title('RMS Energy vs threshold')
-    plt.plot(times, rms, label='RMS', color='blue')
-    plt.plot(times, threshold_raw, label='threshold', color='red')
-    plt.ylabel('RMS Energy (Root-Mean-Square)')
+    plt.plot(times, rms_db, label='RMS', color='blue')
+    plt.plot(times, threshold_raw_db, label='threshold', color='red')
+    plt.ylabel('RMS Energy (Root-Mean-Square) in dB')
     plt.xlabel('Time (s)')
     plt.legend('upper right')
     plt.show()
@@ -257,7 +259,7 @@ def main() -> None:
 
     window_size_samples = int(NEW_SAMPLE_RATE * WINDOW_SIZE_MS / 1000)
     hop_size_samples = int(NEW_SAMPLE_RATE * HOP_SIZE_MS / 1000)
-    audio_noise_threshold = args.audio_noise_threshold
+    audio_noise_threshold = librosa.db_to_power(args.audio_noise_threshold)
     f_noised_audio = librosa.stft(noised_audio, win_length=window_size_samples, hop_length=hop_size_samples)
     rms = librosa.feature.rms(y=noised_audio, frame_length=window_size_samples, hop_length=hop_size_samples)[0]
     frame_index_buffer = []
