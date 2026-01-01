@@ -12,6 +12,9 @@ from typing import Tuple
 STANDARD_SAMPLE_RATE = 32000
 assert STANDARD_SAMPLE_RATE % 2 == 0
 NEW_SAMPLE_RATE = STANDARD_SAMPLE_RATE // 2
+WINDOW_SIZE_MS = 20
+HOP_SIZE_MS = 10
+
 
 OUTPUT_DIR = pathlib.Path('outputs')
 ASSETS_DIR = pathlib.Path('assets')
@@ -93,10 +96,8 @@ def draw_resampled_plots(title: str, sample_rate: int, samples: np.array) -> Non
     audio_plt.set_ylabel('Amplitude')
     audio_plt.set_xlabel('Time (s)')
 
-    window_size_ms = 20
-    hop_size_ms = 10
-    window_size_samples = int(sample_rate * window_size_ms / 1000)
-    hop_size_samples = int(sample_rate * hop_size_ms / 1000)
+    window_size_samples = int(sample_rate * WINDOW_SIZE_MS / 1000)
+    hop_size_samples = int(sample_rate * HOP_SIZE_MS / 1000)
 
     S = librosa.stft(samples, win_length=window_size_samples, hop_length=hop_size_samples)
     S_db = librosa.power_to_db(np.abs(S), ref=np.max)
