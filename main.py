@@ -330,8 +330,8 @@ def main() -> None:
     for current_frame_idx in range(len(agc_rms)):
         current_rms = agc_rms[current_frame_idx]
         gain_factor = target_rms / current_rms
-        # if current_rms < audio_noise_threshold and gain_factor > 1:
-        #     continue
+        if current_rms < audio_noise_threshold and gain_factor > 1:
+            continue
         start_idx_in_audio = current_frame_idx * hop_size_agc_samples
         end_idx_in_audio = min(start_idx_in_audio + hop_size_agc_samples, len(amplified_audio))
         amplified_audio[start_idx_in_audio:end_idx_in_audio] *= gain_factor
