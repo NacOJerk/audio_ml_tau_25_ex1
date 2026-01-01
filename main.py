@@ -43,21 +43,27 @@ def parse_args() -> argparse.Namespace:
         required=True,
     )
     parser.add_argument(
+        '--use-interpolate-for-spectracl',
+        action='store_true',
+        help='Use interpolation instead of average in spectral noise removal',
+    )
+    parser.add_argument(
         '--audio-noise-threshold',
         type=float,
         help='The threshold for the spectral substraction in db',
         default=-17.95,
     )
     parser.add_argument(
-        '--use-average-for-spectracl',
-        action='store_true',
-        help='Use average instead of interpolation in spectral noise removal',
+        '--target-amplified-rms',
+        type=float,
+        help='The target rms after amilification',
+        default=-8,
     )
     parser.add_argument('--question',
                         type=str,
                         help='Which question we are doing now',
                         required=True,
-                        choices=['a', 'b', 'c'])
+                        choices=['a', 'b', 'c', 'd'])
 
     return parser.parse_args()
 
@@ -240,8 +246,27 @@ def plot_question_c(sample_rate: int,
 
     CLEANED_AUDIO_LOCATION = OUTPUT_DIR / pathlib.Path('3_cleaned_audio.wav')
     wavfile.write(CLEANED_AUDIO_LOCATION, NEW_SAMPLE_RATE, cleaned_audio)
-    logging.info(f'Saved trivial down sample to: "{CLEANED_AUDIO_LOCATION.as_posix()}"')
+    logging.info(f'Saved cleaned audio  to: "{CLEANED_AUDIO_LOCATION.as_posix()}"')
 
+def plot_question_d(sample_rate: int,
+                    amplified_audio: np.ndarray,
+                    rms: np.ndarray,
+                    target_rms: float,
+                    noise_threshold_rms: float,
+                    window_and_hop_size: int):
+    draw_resampled_plots('Amplified Audio', NEW_SAMPLE_RATE, amplified_audio)
+    CLEANED_AND_AMPLIFIED_AUDIO_LOCATION = OUTPUT_DIR / pathlib.Path('4_cleaned_and_amplified_audio.wav')
+    wavfile.write(CLEANED_AND_AMPLIFIED_AUDIO_LOCATION, NEW_SAMPLE_RATE, amplified_audio)
+    logging.info(f'Saved cleaned and amplified audio to: "{CLEANED_AND_AMPLIFIED_AUDIO_LOCATION.as_posix()}"')
+
+    times = librosa.times_like(rms, sr=sample_rate, hop_length=window_and_hop_size)
+    gain_factor = target_rms / rms
+    amplification = np.where((rms > noise_threshold_rms) | (gain_factor < 1), gain_factor, 1)
+    plt.plot(times, amplification)
+    plt.title('Audio Amplification Factor as a function of time')
+    plt.ylabel('Amplification') 
+    plt.xlabel('Time (s)')
+    plt.show()
 
 
 def main() -> None:
@@ -274,11 +299,7 @@ def main() -> None:
     
     f_clean_audio = f_noised_audio.copy()
 
-    if args.use_average_for_spectracl:
-        noise_average = np.average(noise_buffer, axis=0)
-        for i in range(f_clean_audio.shape[1]):
-            f_clean_audio[:, i] -= noise_average
-    else:
+    if args.use_interpolate_for_spectracl:
         interp_func = scipy.interpolate.interp1d(frame_index_buffer, noise_buffer, 
                 axis=0, 
                 kind='linear', 
@@ -288,8 +309,33 @@ def main() -> None:
                 f_clean_audio[:, i] -= f_noised_audio[:, i]
             else:
                 f_clean_audio[:, i] -= interp_func(i)
+    else:
+        noise_average = np.average(noise_buffer, axis=0)
+        for i in range(f_clean_audio.shape[1]):
+            f_clean_audio[:, i] -= noise_average
 
     cleaned_audio = librosa.istft(f_clean_audio, win_length=window_size_samples, hop_length=hop_size_samples)
+
+    amplified_audio = cleaned_audio.copy()
+    windows_size_agc_ms = 1000
+    windows_size_agc_samples = int(NEW_SAMPLE_RATE * windows_size_agc_ms / 1000)
+    hop_size_agc_ms = 50
+    hop_size_agc_samples = int(NEW_SAMPLE_RATE * hop_size_agc_ms / 1000)
+    agc_rms = librosa.feature.rms(y=noised_audio,
+                                  frame_length=windows_size_agc_samples, 
+                                  hop_length=hop_size_agc_samples, 
+                                  center=True)[0]
+    target_rms = librosa.db_to_power(args.target_amplified_rms)
+    
+    for current_frame_idx in range(len(agc_rms)):
+        current_rms = agc_rms[current_frame_idx]
+        gain_factor = target_rms / current_rms
+        # if current_rms < audio_noise_threshold and gain_factor > 1:
+        #     continue
+        start_idx_in_audio = current_frame_idx * hop_size_agc_samples
+        end_idx_in_audio = min(start_idx_in_audio + hop_size_agc_samples, len(amplified_audio))
+        amplified_audio[start_idx_in_audio:end_idx_in_audio] *= gain_factor
+    amplified_audio = np.tanh(amplified_audio)
 
     logging.info(f"Answering question: '{args.question}'")
     if args.question == 'a':
@@ -298,6 +344,8 @@ def main() -> None:
         plot_question_b(NEW_SAMPLE_RATE, noise_sample, scipy_down_sample, noised_audio)
     elif args.question == 'c':
         plot_question_c(NEW_SAMPLE_RATE, hop_size_samples, audio_noise_threshold, rms, cleaned_audio)
+    elif args.question == 'd':
+        plot_question_d(NEW_SAMPLE_RATE, amplified_audio, agc_rms, target_rms, audio_noise_threshold, hop_size_agc_samples)
     else:
         raise RuntimeError(f'Unknown question ({repr(args.question)})')
 
