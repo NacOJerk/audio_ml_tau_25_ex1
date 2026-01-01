@@ -1,4 +1,5 @@
 import argparse
+import librosa
 import logging
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,6 +10,7 @@ import scipy.io.wavfile as wavfile
 from typing import Tuple
 
 STANDARD_SAMPLE_RATE = 32000
+OUTPUT_DIR = pathlib.Path('outputs')
 
 def setup_logging(debug: bool) -> None:
     level = logging.DEBUG if debug else logging.INFO
@@ -32,6 +34,11 @@ def parse_args() -> argparse.Namespace:
         help="The audio file to process",
         required=True,
     )
+    parser.add_argument('--question',
+                        type=str,
+                        help='Which question we are doing now',
+                        required=True,
+                        choices=['a', 'b'])
 
     return parser.parse_args()
 
@@ -72,11 +79,8 @@ def draw_resampled_plots(title: str, sample_rate: int, samples: np.array) -> Non
     sample_intervale = 1 / sample_rate
     fake_timestamps = [i * sample_intervale for i in range(len(samples))]
 
-    fig, ((audio_plt, spectogram_plt), (ax3, ax4)) = plt.subplots(2, 2)
+    fig, ((audio_plt, spectogram_plt), (rms_plt, melspectogram_plt)) = plt.subplots(2, 2)
     fig.suptitle(title)
-    for i, ax in enumerate((ax3, ax4)):
-        ax.plot(fake_timestamps, samples)
-        ax.set_title(f'{i}')
     
     audio_plt.plot(fake_timestamps, samples)
     audio_plt.set_title('Audio as a function of time')
@@ -85,23 +89,71 @@ def draw_resampled_plots(title: str, sample_rate: int, samples: np.array) -> Non
 
     window_size_ms = 20
     hop_size_ms = 10
-    number_of_data_points_in_block = int(sample_rate * window_size_ms / 1000)
-    hop_size = int(sample_rate * hop_size_ms / 1000)
-    noverlap = number_of_data_points_in_block - hop_size
-    spectogram_plt.specgram(samples,
-                            Fs=sample_rate,
-                            NFFT=number_of_data_points_in_block,
-                            noverlap=noverlap,
-                            scale='dB',
-                            mode='magnitude',
-                        )
+    window_size_samples = int(sample_rate * window_size_ms / 1000)
+    hop_size_samples = int(sample_rate * hop_size_ms / 1000)
+
+    S = librosa.stft(samples, win_length=window_size_samples, hop_length=hop_size_samples)
+    S_db = librosa.power_to_db(np.abs(S), ref=np.max)
+
+    spec_img = librosa.display.specshow(S_db, 
+                             sr=sample_rate,
+                             x_axis='time',
+                             y_axis='log',
+                             win_length=window_size_samples,
+                             hop_length=hop_size_samples,
+                             ax=spectogram_plt)
     spectogram_plt.set_title('Spectogram')
     spectogram_plt.set_xlabel("Time (s)")
-    spectogram_plt.set_ylabel("Frequency (Hz)")
+    spectogram_plt.set_ylabel("Frequency (log(Hz))")
+    f0, timestamps = pw.harvest(samples.copy(order='C').astype(np.double), sample_rate)
+    spectogram_plt.plot(timestamps, f0, color='cyan', linewidth=2, label='Pitch Contour (F0)')
+    spectogram_plt.legend(loc='upper right')
+    plt.colorbar(spec_img, ax=spectogram_plt, format='%+2.0f dB')
 
+    mel = librosa.feature.melspectrogram(y=samples,
+                                         sr=sample_rate,
+                                         win_length=window_size_samples,
+                                         hop_length=hop_size_samples)
+    mel_db = librosa.power_to_db(np.abs(mel), ref=np.max)
 
+    mel_img = librosa.display.specshow(mel_db, 
+                             sr=sample_rate,
+                             x_axis='time',
+                             y_axis='mel',
+                             win_length=window_size_samples,
+                             hop_length=hop_size_samples,
+                             ax=melspectogram_plt)
+    melspectogram_plt.set_title('Mel Spectogram')
+    melspectogram_plt.set_xlabel("Time (s)")
+    melspectogram_plt.set_ylabel("Frequency (Hz)")
+    plt.colorbar(mel_img, ax=melspectogram_plt, format='%+2.0f dB')
+
+    rms = librosa.feature.rms(y=samples, frame_length=window_size_samples, hop_length=hop_size_samples)[0]
+    rms_db = librosa.amplitude_to_db(rms, ref=np.max)
+    times = librosa.times_like(rms, sr=sample_rate, hop_length=hop_size_samples)
+    rms_plt.set_title('RMS Energy')
+    rms_plt.plot(times, rms, label='')
+    rms_plt.set_ylabel('RMS Energy (Root-Mean-Square)')
+    rms_plt.set_xlabel('Time (s)')
 
     plt.show()
+
+def question_a(samples: np.array) -> None:
+    assert STANDARD_SAMPLE_RATE % 2 == 0
+    new_sample_rate = STANDARD_SAMPLE_RATE // 2
+    my_down_sample = samples[::2]
+    scipy_down_sample = convert_to_rate(STANDARD_SAMPLE_RATE, samples, new_sample_rate)
+
+    draw_resampled_plots('Trivial Down Sample', new_sample_rate, my_down_sample)
+    draw_resampled_plots('Scipy Down Sample', new_sample_rate, scipy_down_sample)
+
+    
+    TRIVIAL_DOWN_SAMPLE_LOCATION = OUTPUT_DIR / pathlib.Path('1.c.trivial_down_sample.wav')
+    SCIPY_DOWN_SAMPLE_LOCATION = OUTPUT_DIR / pathlib.Path('1.c.scipy_down_sample.wav')
+    wavfile.write(TRIVIAL_DOWN_SAMPLE_LOCATION, new_sample_rate, my_down_sample)
+    logging.info(f'Saved trivial down sample to: "{TRIVIAL_DOWN_SAMPLE_LOCATION.as_posix()}"')
+    wavfile.write(SCIPY_DOWN_SAMPLE_LOCATION, new_sample_rate, scipy_down_sample)
+    logging.info(f'Saved scipy down sample to: "{SCIPY_DOWN_SAMPLE_LOCATION.as_posix()}"')
 
 
 def main() -> None:
@@ -114,11 +166,14 @@ def main() -> None:
     new_sample = convert_to_rate(original_sample_rate, raw_sample, STANDARD_SAMPLE_RATE)
     logging.debug(f'Resampled audio to: {STANDARD_SAMPLE_RATE} (samples/sec)')
 
-    assert STANDARD_SAMPLE_RATE % 2 == 0
-    new_sample_rate = STANDARD_SAMPLE_RATE // 2
-    my_down_sample = new_sample[::2]
-    scipy_down_sample = convert_to_rate(STANDARD_SAMPLE_RATE, new_sample, new_sample_rate)
-    draw_resampled_plots('Stuiped Down sample', new_sample_rate, my_down_sample)
+    if args.question == 'a':
+        logging.info('Answering question \'a\'')
+        question_a(new_sample)
+    elif args.question == 'b':
+        logging.info('Answering question \'b\'')
+        pass
+    else:
+        raise RuntimeError(f'Unknown question ({repr(args.question)})')
 
 if __name__ == "__main__":
     main()
