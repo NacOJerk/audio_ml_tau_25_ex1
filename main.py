@@ -10,7 +10,12 @@ import scipy.io.wavfile as wavfile
 from typing import Tuple
 
 STANDARD_SAMPLE_RATE = 32000
+assert STANDARD_SAMPLE_RATE % 2 == 0
+NEW_SAMPLE_RATE = STANDARD_SAMPLE_RATE // 2
+
 OUTPUT_DIR = pathlib.Path('outputs')
+ASSETS_DIR = pathlib.Path('assets')
+NOISE_PATH = ASSETS_DIR / 'stationary_noise.wav'
 
 def setup_logging(debug: bool) -> None:
     level = logging.DEBUG if debug else logging.INFO
@@ -63,10 +68,11 @@ def read_audio_file(audio_file: pathlib.Path) -> Tuple[int, np.array]:
 
     assert len(raw_sample.shape) == 1, "Channel truncation failed"
 
-    assert raw_sample.dtype == np.int16, "Unexpected data type"
-    WAVFILE_INT16_MAX_RANGE = 32767.0 # Taken from wavfile.py
-    raw_sample = raw_sample.astype(np.float32) / WAVFILE_INT16_MAX_RANGE
+    if raw_sample.dtype == np.int16:
+        WAVFILE_INT16_MAX_RANGE = 32767.0 # Taken from wavfile.py
+        raw_sample = raw_sample.astype(np.float32) / WAVFILE_INT16_MAX_RANGE
 
+    assert raw_sample.dtype == np.float32, f"Unexpected data type ({repr(raw_sample.dtype)})"
     return original_sample_rate, raw_sample
 
 def convert_to_rate(original_sample_rate: int, raw_sample: np.array, new_sample_rate: int) -> np.array:
@@ -138,40 +144,78 @@ def draw_resampled_plots(title: str, sample_rate: int, samples: np.array) -> Non
 
     plt.show()
 
-def question_a(samples: np.array) -> None:
-    assert STANDARD_SAMPLE_RATE % 2 == 0
-    new_sample_rate = STANDARD_SAMPLE_RATE // 2
-    my_down_sample = samples[::2]
-    scipy_down_sample = convert_to_rate(STANDARD_SAMPLE_RATE, samples, new_sample_rate)
+def plot_question_a(my_down_sample: np.array, scipy_down_sample: np.array) -> None:
+    draw_resampled_plots('Trivial Down Sample', NEW_SAMPLE_RATE, my_down_sample)
+    draw_resampled_plots('Scipy Down Sample', NEW_SAMPLE_RATE, scipy_down_sample)
 
-    draw_resampled_plots('Trivial Down Sample', new_sample_rate, my_down_sample)
-    draw_resampled_plots('Scipy Down Sample', new_sample_rate, scipy_down_sample)
-
-    
     TRIVIAL_DOWN_SAMPLE_LOCATION = OUTPUT_DIR / pathlib.Path('1.c.trivial_down_sample.wav')
     SCIPY_DOWN_SAMPLE_LOCATION = OUTPUT_DIR / pathlib.Path('1.c.scipy_down_sample.wav')
-    wavfile.write(TRIVIAL_DOWN_SAMPLE_LOCATION, new_sample_rate, my_down_sample)
+    wavfile.write(TRIVIAL_DOWN_SAMPLE_LOCATION, NEW_SAMPLE_RATE, my_down_sample)
     logging.info(f'Saved trivial down sample to: "{TRIVIAL_DOWN_SAMPLE_LOCATION.as_posix()}"')
-    wavfile.write(SCIPY_DOWN_SAMPLE_LOCATION, new_sample_rate, scipy_down_sample)
+    wavfile.write(SCIPY_DOWN_SAMPLE_LOCATION, NEW_SAMPLE_RATE, scipy_down_sample)
     logging.info(f'Saved scipy down sample to: "{SCIPY_DOWN_SAMPLE_LOCATION.as_posix()}"')
+
+def load_audio_file_as_standard(path: pathlib.Path) -> np.array:
+    logging.info(f'Loading "{path}"')
+    original_sample_rate, sample = read_audio_file(path)
+    logging.info(f"Original sampling frequency: {original_sample_rate} (samples/sec)")
+    if original_sample_rate != STANDARD_SAMPLE_RATE:
+        sample = convert_to_rate(original_sample_rate, sample, STANDARD_SAMPLE_RATE)
+        logging.debug(f'Resampled audio to: {STANDARD_SAMPLE_RATE} (samples/sec)')
+    return sample
+
+def plot_question_b(sample_rate: int, noise: np.array, audio: np.array, noised_audio: np.array) -> None:
+    assert len(noise) == len(audio) and \
+        len(audio) == len(noised_audio), f'Length mismatch ({len(noise)} vs {len(audio)} vs {len(noised_audio)})'
+
+    sample_intervale = 1 / sample_rate
+    fake_timestamps = [i * sample_intervale for i in range(len(noise))]
+
+    fig, (audio_plt, noised_audio_plt) = plt.subplots(2)
+    fig.suptitle('Audio vs Noised Audio')
+    
+    audio_plt.plot(fake_timestamps, audio)
+    audio_plt.set_title('Audio as a function of time')
+    audio_plt.set_ylabel('Amplitude')
+    audio_plt.set_xlabel('Time (s)')
+
+    noised_audio_plt.plot(fake_timestamps, noised_audio)
+    noised_audio_plt.set_title('Noised Audio as a function of time')
+    noised_audio_plt.set_ylabel('Amplitude')
+    noised_audio_plt.set_xlabel('Time (s)')
+
+    plt.show()
+
+    plt.plot(fake_timestamps, noise)
+    plt.title('Noise as a function of time')
+    plt.ylabel('Amplitude')
+    plt.xlabel('Time (s)')
+    plt.show()
+    
+    NOISY_SAMPLE_LOCATION = OUTPUT_DIR / pathlib.Path('2.noisy_sample.wav')
+    wavfile.write(NOISY_SAMPLE_LOCATION, NEW_SAMPLE_RATE, noised_audio)
+    logging.info(f'Saved trivial down sample to: "{NOISY_SAMPLE_LOCATION.as_posix()}"')
 
 
 def main() -> None:
     args = parse_args()
     setup_logging(args.debug)
 
-    original_sample_rate, raw_sample = read_audio_file(args.audio_file)
-    logging.info(f"Original sampling frequency: {original_sample_rate} (samples/sec)")
-    
-    new_sample = convert_to_rate(original_sample_rate, raw_sample, STANDARD_SAMPLE_RATE)
-    logging.debug(f'Resampled audio to: {STANDARD_SAMPLE_RATE} (samples/sec)')
+    audio_sample = load_audio_file_as_standard(args.audio_file)
+    noise_sample = convert_to_rate(STANDARD_SAMPLE_RATE, load_audio_file_as_standard(NOISE_PATH), NEW_SAMPLE_RATE)
+
+    my_down_sample = audio_sample[::2]
+    scipy_down_sample = convert_to_rate(STANDARD_SAMPLE_RATE, audio_sample, NEW_SAMPLE_RATE)
+
+    noise_sample = noise_sample[:len(scipy_down_sample)]
+    noised_audio = scipy_down_sample + noise_sample
 
     if args.question == 'a':
         logging.info('Answering question \'a\'')
-        question_a(new_sample)
+        plot_question_a(my_down_sample, scipy_down_sample)
     elif args.question == 'b':
         logging.info('Answering question \'b\'')
-        pass
+        plot_question_b(NEW_SAMPLE_RATE, noise_sample, scipy_down_sample, noised_audio)
     else:
         raise RuntimeError(f'Unknown question ({repr(args.question)})')
 
