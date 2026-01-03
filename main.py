@@ -216,6 +216,8 @@ def plot_question_b(sample_rate: int, noise: np.array, audio: np.array, noised_a
     plt.ylabel('Amplitude')
     plt.xlabel('Time (s)')
     plt.show()
+
+    draw_resampled_plots('Noised audio', sample_rate, noised_audio)
     
     NOISY_SAMPLE_LOCATION = OUTPUT_DIR / pathlib.Path('2.noisy_sample.wav')
     wavfile.write(NOISY_SAMPLE_LOCATION, NEW_SAMPLE_RATE, noised_audio)
