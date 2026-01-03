@@ -351,4 +351,19 @@ The following diagram (\ref{fig:3.cleaned_audio_interpolate}) were generated usi
 \end{figure}
 \afterpage{\clearpage}
 
+\subsection{Auto Gain Control}
+In this section we were requested to apply Auto Gain Control on the previous cleaned audio.
+We chose a target rms of \code (-6 dB) and chose not to amplify areas detected as noise.
+The following diagrams (\ref{fig:4.agc_audio}, \ref{fig:4.rms_ampf}) were generated using the following command:
+
+\code{python ./main.py --audio-file ./recordings/combined.wav --question d}
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.6\linewidth]{outputs/4.amplified_audio.png}
+\caption{\label{fig:4.agc_audio} Plot of \code{4\_cleaned\_and\_amplified\_audio.wav}}
+\includegraphics[width=0.6\linewidth]{outputs/4.amplification_as_a_function_of_time.png}
+\caption{\label{fig:4.rms_ampf} Plot of the amplification \code{3\_cleaned\_audio.wav} exprienced as a function of time}
+\end{figure}
+\afterpage{\clearpage}
+
 \end{document}
