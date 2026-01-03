@@ -284,6 +284,7 @@ Since low frequencies pass and high frequencies are attenuated, this is a Low Pa
 \def\code#1{\texttt{#1}}
 In this section we will shortly answer the answer related to the technical part that was implemeneted using \code{main.py}. 
 The outputs of this section would be provided along side the code in the \code{outputs} directory, this directory will include both the resulting audio files and higher resultion diagrams.
+Also most of the arbitraly chosen parameters in this exercise are configurable via the arguments to the script (use \code{--help} to see the possible options).
 
 \subsection{Initial Analysis}
 This section focuses on actually loading the the audio and drawing some plots for it.
@@ -363,6 +364,30 @@ The following diagrams (\ref{fig:4.agc_audio}, \ref{fig:4.rms_ampf}) were genera
 \caption{\label{fig:4.agc_audio} Plot of \code{4\_cleaned\_and\_amplified\_audio.wav}}
 \includegraphics[width=0.6\linewidth]{outputs/4.amplification_as_a_function_of_time.png}
 \caption{\label{fig:4.rms_ampf} Plot of the amplification \code{3\_cleaned\_audio.wav} exprienced as a function of time}
+\end{figure}
+\afterpage{\clearpage}
+
+\subsection{Time Streching}
+This section was implemented by:
+\begin{enumerate}
+    \item Performing \code{stft} on the input
+    \item Creating an interpolation function using \code{scipy.interpolate.interp1d}
+    \item Creating samples using the formula \code{1.5x}
+    \item Performing \code{istft} to get the final result
+\end{enumerate}
+For fun we also generated different speeds
+The following diagram (\ref{fig:5.speed_up_0.8}, \ref{fig:5.speed_up_1.5}, \ref{fig:5.speed_up_4}) were generated using the following command:
+
+\code{python ./main.py --audio-file ./recordings/combined.wav --question e\\
+\indent\indent\indent --speed-up-factor X}
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.6\linewidth]{outputs/5.speed.up.by.0.8.png}
+\caption{\label{fig:5.speed_up_0.8} Plot of \code{5\_speed\_up\_by\_0.8\_audio.wav}}
+\includegraphics[width=0.6\linewidth]{outputs/5.speed.up.by.1.5.png}
+\caption{\label{fig:5.speed_up_1.5} Plot of \code{5\_speed\_up\_by\_1.5\_audio.wav}}
+\includegraphics[width=0.6\linewidth]{outputs/5.speed.up.by.4.png}
+\caption{\label{fig:5.speed_up_4} Plot of \code{5\_speed\_up\_by\_4\_audio.wav}}
 \end{figure}
 \afterpage{\clearpage}
 
