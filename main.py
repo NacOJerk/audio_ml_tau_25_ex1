@@ -211,12 +211,7 @@ def plot_question_b(sample_rate: int, noise: np.array, audio: np.array, noised_a
 
     plt.show()
 
-    plt.plot(fake_timestamps, noise)
-    plt.title('Noise as a function of time')
-    plt.ylabel('Amplitude')
-    plt.xlabel('Time (s)')
-    plt.show()
-
+    draw_resampled_plots('Noise', sample_rate, noise)
     draw_resampled_plots('Noised audio', sample_rate, noised_audio)
     
     NOISY_SAMPLE_LOCATION = OUTPUT_DIR / pathlib.Path('2.noisy_sample.wav')
