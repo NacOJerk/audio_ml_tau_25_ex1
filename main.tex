@@ -4,7 +4,7 @@
 % Replace `english' with e.g. `spanish' to change the document language
 \usepackage[english]{babel}
 \usepackage{mathrsfs,amsmath} 
-
+\usepackage{afterpage}
 % Set page size and margins
 % Replace `letterpaper' with `a4paper' for UK/EU standard size
 \usepackage[letterpaper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
@@ -280,6 +280,75 @@ Analyzing the filter type by checking limits:
 \end{equation}
 Since low frequencies pass and high frequencies are attenuated, this is a Low Pass Filter.
 
+\section{Technical Part}
+\def\code#1{\texttt{#1}}
+In this section we will shortly answer the answer related to the technical part that was implemeneted using \code{main.py}. 
+The outputs of this section would be provided along side the code in the \code{outputs} directory, this directory will include both the resulting audio files and higher resultion diagrams.
 
+\subsection{Initial Analysis}
+This section focuses on actually loading the the audio and drawing some plots for it.
+TBH we didn't see any clear difference between taking every even sample or using the \code{scipy.signal.resample} function, neither in sound quality or in the plots.
+By reading the documentation of \code{scipy.signal.resample} it looks like should provide better anti-aliasing but on the other hand assumes the signal is periodic.
+
+\subsubsection{Resampled audio plots}
+The following diagrams (\ref{fig:1.c.trivial_down_sample},\ref{fig:1.c.scipy_down_sample}) were generated using the command
+
+\code{python ./main.py --audio-file ./recordings/combined.wav --question a}\\
+We can visibly see that the Pitch Countour is missing on areas without speech meaning we couldn't find a matching pitch for that section.
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.55\linewidth]{outputs/1.c.trivial_down_sample.png}
+\caption{\label{fig:1.c.trivial_down_sample} Plot of \code{1.c.trivial\_down\_sample.wav}}
+\includegraphics[width=0.55\linewidth]{outputs/1.c.scipy_down_sample.png}
+\label{1.c.scipy_down_sample}
+\caption{\label{fig:1.c.scipy_down_sample} Plot of \code{1.c.scipy\_down\_sample.wav}}
+\end{figure}
+\afterpage{\clearpage}
+\subsection{Adding noise}
+We were now requested to add noise to our signal.
+The following diagrams (\ref{fig:2.orig_vs_noise}, \ref{fig:2.noise}, \ref{fig:2.noisy_sample}) show the original audio vs the noised audio and then the spectogram of the noise and the spectogram of the noised audio.
+The diagrams were generated using the command:
+
+\code{python ./main.py --audio-file ./recordings/combined.wav --question b}:
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.6\linewidth]{outputs/2.orig_vs_noise.png}
+\caption{\label{fig:2.orig_vs_noise} Plot of \code{1.c.scipy\_down\_sample.wav} vs \code{2.noisy\_sample.wav}}
+\includegraphics[width=0.6\linewidth]{outputs/2.noise_sample.png}
+\caption{\label{fig:2.noise} Plot of \code{stationary\_noise.wav}}
+\includegraphics[width=0.6\linewidth]{outputs/2.noised_audio.png}
+\caption{\label{fig:2.noisy_sample} Plot of \code{2.noisy\_sample.wav}}
+\end{figure}
+\afterpage{\clearpage}
+
+\subsection{Spectral Substraction}
+In this section we were requested to perform spectral substraction in order to clear the noise we just add, we choose \code{-17.95 dB} as our noise threshold and used two different methods to clear the noise:
+\begin{enumerate}
+    \item Classic averaging of the noise and then reduction
+    \item Interpolation of the noise between unnoised section
+\end{enumerate}
+The reset of the exercise used the first method but we added both the code and the resulting diagrams for the second method as well.
+The following diagrams (\ref{fig:3.rms_vs_threshold}, \ref{fig:3.cleaned_audio}) were generated using the following command:
+
+\code{python ./main.py --audio-file ./recordings/combined.wav --question c}:
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.6\linewidth]{outputs/3.rms_vs_threshold.png}
+\caption{\label{fig:3.rms_vs_threshold} Plot of rms of \code{1.noisy\_sample.wav} vs the chosen threshold}
+\includegraphics[width=0.6\linewidth]{outputs/3.cleaned_audio.png}
+\caption{\label{fig:3.cleaned_audio} Plot of \code{3\_cleaned\_audio.wav}}
+\end{figure}
+\afterpage{\clearpage}
+
+The following diagram (\ref{fig:3.cleaned_audio_interpolate}) were generated using the following command:
+
+\code{python ./main.py --audio-file ./recordings/combined.wav --question c\\
+\indent\indent --use-interpolate-for-spectracl}:
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.6\linewidth]{outputs/3.cleaned_audio_interpolation.png}
+\caption{\label{fig:3.cleaned_audio_interpolate} Plot of rms of \code{3.cleaned\_audio\_interpolation.wav} vs the chosen threshold}
+\end{figure}
+\afterpage{\clearpage}
 
 \end{document}
