@@ -279,7 +279,135 @@ Analyzing the filter type by checking limits:
     \lim_{\omega \to 0} |X(\omega)| = \frac{1}{a}, \quad \lim_{\omega \to \infty} |X(\omega)| = 0
 \end{equation}
 Since low frequencies pass and high frequencies are attenuated, this is a Low Pass Filter.
+\subsection{Aliasing}
 
+\subsubsection{Part (a) - Aliasing}
+\textbf{Given:}
+\begin{itemize}
+    \item Sampling Rate: $F_s = 8000 \text{ Hz}$
+    \item Input Frequency: $f_{in} = 10 \text{ kHz}$
+\end{itemize}
+
+\textbf{Analysis:}
+The Nyquist frequency is half the sampling rate:
+\[ F_{Nyquist} = \frac{F_s}{2} = \frac{8000}{2} = 4000 \text{ Hz} \]
+
+Since the input frequency $f_{in} = 10 \text{ kHz}$ exceeds the Nyquist limit, aliasing occurs. The apparent (aliased) frequency $f_{alias}$ is calculated by folding the frequency back into the valid range $[0, F_s/2]$:
+\[ f_{alias} = | f_{in} - k \cdot F_s | \]
+
+Using $k=1$ to minimize the result:
+\[ f_{alias} = | 10000 - 8000 | = 2000 \text{ Hz} \]
+
+\textbf{Answer:}
+The $10 \text{ kHz}$ signal will be aliased to \textbf{2 kHz}.
+
+\subsubsection{Part (b): Prevention}
+To prevent aliasing, the analog signal must be filtered before it enters the sampler. We use an \textbf{Analog Low Pass Filter} (An Anti-Aliasing Filter) to filter out all frequencies above the Nyquist frequency ($4000 \text{ Hz}$).
+
+\textbf{Implementation option:}
+A basic physical implementation is a passive RC circuit. The cutoff frequency $f_c$ is determined by:
+\[ f_c = \frac{1}{2 \pi R C} \]
+
+For a design requirement of $f_c = 4000 \text{ Hz}$, we can select a  capacitor value of $C = 10 \text{ nF}$, and a resistor with resistance of:
+\[ R = \frac{1}{2 \pi f_c C} = \frac{1}{2 \pi (4000)(10^{-8})} = \frac{10^5}{8 \pi} \, \Omega \approx 3.98 \text{ k}\Omega \]
+
+\textit{Note: RC circuits are classis but not a perfect solution for anti aliasing. A modern an better solution is using an Active Filter (using an Op-Amp) to prevent signal loss (because of loading effects) and to create a sharper cutoff slope.}
+
+\subsection{Stereo Hearing Experiment}
+
+\subsection*{Observations}
+We peformed the experiment and got the following results:
+\begin{itemize}
+    \item When the left channel (\texttt{audio\_l.wav}) is shifted by $2 \text{ ms}$ (delayed relative to the right), the sound source appears to originate from the \textbf{right side}.
+    \item When the right channel (\texttt{audio\_r.wav}) is shifted by $2 \text{ ms}$ (delayed relative to the left), the sound source appears to originate from the \textbf{left side}.
+\end{itemize}
+
+\subsection*{Explanation}
+The phenomenon observed is due to the fact we use two sensors in different location to preserve sound. Specifically using the delay between ears is called \textbf{Interaural Time Difference}.
+
+\begin{enumerate}
+    \item \textbf{Mechanism:} If a sound originates from the right, it has a shorter path to the right ear and a longer path to the left ear. This results in the signal reaching the right ear first. The brain processes this time lead as a directional cue. The speed of sound is about 300 $m/s$, and the distance between our ears is about \~20 cm, therefore sound that come (for example) directly from the left side arrives to the right in a delay of about $~0.6$ ms.
+    \item \textbf{Simulation:} By artificially introducing a $2 \text{ ms}$ delay to one channel, we simulate a path length difference.
+    \begin{itemize}
+        \item Delaying the left channel implies the signal arrived at the right ear first, corresponding to a source on the \textbf{right}.
+        \item Delaying the right channel implies the signal arrived at the left ear first, corresponding to a source on the \textbf{left}.
+    \end{itemize}
+\end{enumerate}
+\subsection{Z-Transform Properties}
+
+\subsubsection{Part (a): Convolution Property}
+\textbf{Goal:} Prove that $\mathcal{Z}(x_1[n] * x_2[n]) = X_1(z)X_2(z)$.
+
+\textbf{Proof:}
+Let $y[n] = x_1[n] * x_2[n]$. By the definition of the Z-transform:
+\[ Y(z) = \sum_{n=-\infty}^{\infty} (x_1[n] * x_2[n]) z^{-n} \]
+
+Substitute the definition of discrete convolution:
+\[ Y(z) = \sum_{n=-\infty}^{\infty} \left[ \sum_{k=-\infty}^{\infty} x_1[k] x_2[n-k] \right] z^{-n} \]
+
+Swap the order of summation:
+\[ Y(z) = \sum_{k=-\infty}^{\infty} x_1[k] \left[ \sum_{n=-\infty}^{\infty} x_2[n-k] z^{-n} \right] \]
+
+Perform a change of variable for the inner sum. Let $m = n - k$, which implies $n = m + k$. As $n \to \pm \infty$, $m \to \pm \infty$:
+\[ Y(z) = \sum_{k=-\infty}^{\infty} x_1[k] \left[ \sum_{m=-\infty}^{\infty} x_2[m] z^{-(m+k)} \right] \]
+
+Separate the exponent $z^{-(m+k)} = z^{-m} z^{-k}$ and factor out terms independent of $m$:
+\[ Y(z) = \sum_{k=-\infty}^{\infty} x_1[k] z^{-k} \left[ \sum_{m=-\infty}^{\infty} x_2[m] z^{-m} \right] \]
+
+Identify the Z-transform definitions $X_1(z)$ and $X_2(z)$:
+\[ Y(z) = X_1(z) \cdot X_2(z) \]
+\hfill
+
+\subsubsection{Scaling Property}
+\textbf{Goal:} Prove that $\mathcal{Z}(a^n x[n]) = X\left(\frac{z}{a}\right)$.
+
+\textbf{Proof:}
+Let $y[n] = a^n x[n]$. By the definition of the Z-transform:
+\[ Y(z) = \sum_{n=-\infty}^{\infty} (a^n x[n]) z^{-n} \]
+
+Combine the terms raised to the power of $n$:
+\[ Y(z) = \sum_{n=-\infty}^{\infty} x[n] (a^n z^{-n}) = \sum_{n=-\infty}^{\infty} x[n] (a^{-1} z)^{-n} \]
+
+Rewrite the term inside the parenthesis as a fraction:
+\[ Y(z) = \sum_{n=-\infty}^{\infty} x[n] \left( \frac{z}{a} \right)^{-n} \]
+
+Comparing this to the definition $X(z) = \sum x[n] z^{-n}$, we see that the argument $z$ is replaced by $z/a$:
+\[ Y(z) = X\left(\frac{z}{a}\right) \]
+\hfill
+\subsection{DTFS}
+
+\subsubsection{Fundamental Period}
+\textbf{Given:} $x[n] = \cos(0.1\pi n)$.
+
+To find the fundamental period $N_0$, we uses the periodicity condition:
+\[ \frac{\omega_0}{2\pi} = \frac{1}{N_0} \]
+where $N_0$ is integer.
+
+Given $\omega_0 = 0.1\pi$:
+\[ \frac{0.1\pi}{2\pi} = \frac{0.1}{2} = \frac{1}{20} \]
+
+Thus, the fundamental period is:
+\[ N_0 = 20 \text{ samples} \]
+
+\subsubsection{DTFS Coefficients}
+The Discrete Time Fourier Series representation of a periodic signal $x[n]$ with period $N_0$ is:
+\[ x[n] = \sum_{k=\langle N_0 \rangle} a_k e^{j k \frac{2\pi}{N_0} n} \]
+
+Using Euler's formula, we expand $x[n]$:
+\[ x[n] = \cos\left(\frac{2\pi}{20} n\right) = \frac{1}{2} e^{j \frac{2\pi}{20} n} + \frac{1}{2} e^{-j \frac{2\pi}{20} n} \]
+
+Comparing this to the DTFS definition, we identify the coefficients $a_k$ (where the fundamental frequency is $\frac{2\pi}{20}$):
+\begin{itemize}
+    \item For $k=1$: coefficient is $\frac{1}{2}$.
+    \item For $k=-1$ (equivalent to $k=19$): coefficient is $\frac{1}{2}$.
+    \item For all other $k$ in the range $0 \le k < 20$: $a_k = 0$.
+\end{itemize}
+
+\textbf{Final Answer:}
+\[ a_k = \begin{cases} 
+0.5 & k = 1, 19 \text{ (modulo 20)} \\
+0 & \text{otherwise}
+\end{cases} \]
 \section{Technical Part}
 \def\code#1{\texttt{#1}}
 In this section we will shortly answer the answer related to the technical part that was implemeneted using \code{main.py}. 
