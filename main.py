@@ -259,7 +259,8 @@ def plot_question_d(sample_rate: int,
                     target_rms: float,
                     noise_threshold_rms: float,
                     window_and_hop_size: int):
-    draw_resampled_plots('Amplified Audio', NEW_SAMPLE_RATE, amplified_audio)
+    target_rms_db = librosa.power_to_db(target_rms)
+    draw_resampled_plots('Amplified Audio (%.2f db)' % target_rms_db, NEW_SAMPLE_RATE, amplified_audio)
     CLEANED_AND_AMPLIFIED_AUDIO_LOCATION = OUTPUT_DIR / pathlib.Path('4_cleaned_and_amplified_audio.wav')
     wavfile.write(CLEANED_AND_AMPLIFIED_AUDIO_LOCATION, NEW_SAMPLE_RATE, amplified_audio)
     logging.info(f'Saved cleaned and amplified audio to: "{CLEANED_AND_AMPLIFIED_AUDIO_LOCATION.as_posix()}"')
