@@ -140,6 +140,8 @@ def draw_resampled_plots(title: str, sample_rate: int, samples: np.array) -> Non
     spectogram_plt.legend(loc='upper right')
     plt.colorbar(spec_img, ax=spectogram_plt, format='%+2.0f dB')
 
+    # From librosa.feature.melspectrogram documentation
+    f_max = float(sample_rate) / 2 
     mel = librosa.feature.melspectrogram(y=samples,
                                          sr=sample_rate,
                                          win_length=window_size_samples,
@@ -153,7 +155,7 @@ def draw_resampled_plots(title: str, sample_rate: int, samples: np.array) -> Non
                              win_length=window_size_samples,
                              hop_length=hop_size_samples,
                              ax=melspectogram_plt)
-    melspectogram_plt.set_title('Mel Spectogram')
+    melspectogram_plt.set_title('Mel Spectogram ($F_{max}$ = %.2f)' % (f_max))
     melspectogram_plt.set_xlabel("Time (s)")
     melspectogram_plt.set_ylabel("Frequency (Hz)")
     plt.colorbar(mel_img, ax=melspectogram_plt, format='%+2.0f dB')
