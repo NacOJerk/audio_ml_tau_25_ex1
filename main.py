@@ -57,7 +57,7 @@ def parse_args() -> argparse.Namespace:
         '--target-amplified-rms',
         type=float,
         help='The target rms after amilification',
-        default=-8,
+        default=-6,
     )
     parser.add_argument(
         '--speed-up-factor',
